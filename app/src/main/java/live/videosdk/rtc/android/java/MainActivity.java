@@ -8,6 +8,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.AssetManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.media.projection.MediaProjectionManager;
@@ -34,17 +35,12 @@ import com.nabinbhandari.android.permissions.PermissionHandler;
 import com.nabinbhandari.android.permissions.Permissions;
 
 import org.json.JSONObject;
-import org.webrtc.CapturerObserver;
-import org.webrtc.EglBase;
 import org.webrtc.RendererCommon;
 import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
-import org.webrtc.VideoFrame;
-import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
-import java.io.File;
-import java.io.FilenameFilter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -58,7 +54,6 @@ import live.videosdk.rtc.android.Participant;
 import live.videosdk.rtc.android.Stream;
 import live.videosdk.rtc.android.VideoSDK;
 import live.videosdk.rtc.android.java.banuba.BanubaProcessor;
-import live.videosdk.rtc.android.java.banuba.IVideoFrameProcessor;
 import live.videosdk.rtc.android.lib.AppRTCAudioManager;
 import live.videosdk.rtc.android.lib.PeerConnectionUtils;
 import live.videosdk.rtc.android.listeners.MeetingEventListener;
@@ -83,33 +78,10 @@ public class MainActivity extends AppCompatActivity {
     private static final int CAPTURE_PERMISSION_REQUEST_CODE = 1;
 
     private FloatingActionButton btnScreenShare,btnMic,btnWebcam;
-
-    private IVideoFrameProcessor mVideoFrameProcessor;
-    private SurfaceTextureHelper mSurfaceTextureHelper;
     private EffectsAdapter mEffectsAdapter;
-    private boolean isUseFront = true;
 
+    BanubaProcessor banubaProcessor;
 
-    private CapturerObserver observer = new CapturerObserver() {
-
-        @Override
-        public void onCapturerStarted(boolean b) {
-            Log.v("TAG", "onCapturerStarted");
-            mVideoFrameProcessor.onCaptureStarted();
-        }
-
-        @Override
-        public void onCapturerStopped() {
-            Log.v("TAG", "onCapturerStopped");
-            mVideoFrameProcessor.onCaptureStopped();
-        }
-
-        @Override
-        public void onFrameCaptured(VideoFrame videoFrame) {
-            Log.v("TAG", "onFrameCaptured:" + videoFrame.getRotatedHeight() + ":" + videoFrame.getRotatedWidth());
-            mVideoFrameProcessor.pushVideoFrame(videoFrame, isUseFront);
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -140,18 +112,23 @@ public class MainActivity extends AppCompatActivity {
 
         Map<String, CustomStreamTrack> customTracks = new HashMap<>();
 
-        CustomStreamTrack videoCustomTrack = VideoSDK.createCameraVideoTrack("h720p_w1280p", "front", CustomStreamTrack.VideoMode.MOTION,this,observer);
+        CustomStreamTrack videoCustomTrack = VideoSDK.createCameraVideoTrack("h720p_w1280p", "front", CustomStreamTrack.VideoMode.TEXT, false, this,null);
         customTracks.put("video", videoCustomTrack);
 
-        CustomStreamTrack audioCustomTrack = VideoSDK.createAudioTrack("high_quality", null, this);
+        CustomStreamTrack audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this);
         customTracks.put("mic", audioCustomTrack);
 
-        initVideoFrameProcessor(videoCustomTrack.getVideoSource(), videoCustomTrack);
+  //      initVideoFrameProcessor(videoCustomTrack.getVideoSource(), videoCustomTrack);
+
+//        meeting = VideoSDK.initMeeting(
+//                MainActivity.this, meetingId, participantName,
+//                micEnabled, webcamEnabled, null, customTracks
+//        );
 
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
                 MainActivity.this, meetingId, participantName,
-                micEnabled, webcamEnabled, null, customTracks
+                micEnabled, webcamEnabled, null, null, false, customTracks, null
         );
 
         ((MainApplication) this.getApplication()).setMeeting(meeting);
@@ -178,8 +155,6 @@ public class MainActivity extends AppCompatActivity {
         final TextView tvMeetingId = findViewById(R.id.tvMeetingId);
         tvMeetingId.setText(meetingId);
         tvMeetingId.setOnClickListener(v -> copyTextToClipboard(meetingId));
-
-
     }
 
     private void setAudioDeviceListeners() {
@@ -209,6 +184,9 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onMeetingJoined() {
             Log.d("#meeting", "onMeetingJoined()");
+//
+           banubaProcessor = new BanubaProcessor();
+            VideoSDK.applyVideoProcessor(banubaProcessor) ;
         }
 
         @Override
@@ -405,11 +383,11 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onStreamEnabled(Stream stream) {
                 if (stream.getKind().equalsIgnoreCase("video")) {
-                    svrLocal.setVisibility(View.VISIBLE);
-                    svrLocal.setZOrderMediaOverlay(true);
+                    svrShare.setVisibility(View.VISIBLE);
+                    svrShare.setZOrderMediaOverlay(true);
 
                     VideoTrack track = (VideoTrack) stream.getTrack();
-                    track.addSink(svrLocal);
+                    track.addSink(svrShare);
 
                     webcamEnabled = true;
                     toggleWebcamIcon();
@@ -433,10 +411,10 @@ public class MainActivity extends AppCompatActivity {
             public void onStreamDisabled(Stream stream) {
                 if (stream.getKind().equalsIgnoreCase("video")) {
                     VideoTrack track = (VideoTrack) stream.getTrack();
-                    if (track != null) track.removeSink(svrLocal);
+                    if (track != null) track.removeSink(svrShare);
 
-                    svrLocal.clearImage();
-                    svrLocal.setVisibility(View.GONE);
+                    svrShare.clearImage();
+                    svrShare.setVisibility(View.GONE);
 
                     webcamEnabled = false;
                     toggleWebcamIcon();
@@ -500,7 +478,7 @@ public class MainActivity extends AppCompatActivity {
 //                PeerConnectionUtils peerConnectionUtils = new PeerConnectionUtils();
 //                meeting.enableMic(peerConnectionUtils.createAudioTrack(MainActivity.this, "mic"));
 
-                meeting.unmuteMic(VideoSDK.createAudioTrack("speech_low_quality", null, this));
+                meeting.unmuteMic(VideoSDK.createAudioTrack("speech_low_quality", null));
             }
         });
 
@@ -509,9 +487,9 @@ public class MainActivity extends AppCompatActivity {
             if (webcamEnabled) {
                 meeting.disableWebcam();
             } else {
-                CustomStreamTrack videoCustomTrack = VideoSDK.createCameraVideoTrack("h720p_w1280p", "front", CustomStreamTrack.VideoMode.MOTION,this, observer);
+                CustomStreamTrack videoCustomTrack = VideoSDK.createCameraVideoTrack("h720p_w1280p", "front", CustomStreamTrack.VideoMode.TEXT, false, this,null);
 
-                initVideoFrameProcessor(videoCustomTrack.getVideoSource(), videoCustomTrack);
+           //     initVideoFrameProcessor(videoCustomTrack.getVideoSource(), videoCustomTrack);
 
                 meeting.enableWebcam(videoCustomTrack);
             }
@@ -608,7 +586,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void toggleRecording() {
         if (!recording) {
-            meeting.startRecording(null);
+    //        meeting.startRecording(null);
         } else {
             meeting.stopRecording();
         }
@@ -623,7 +601,7 @@ public class MainActivity extends AppCompatActivity {
             List<LivestreamOutput> outputs = new ArrayList<>();
             outputs.add(new LivestreamOutput(YOUTUBE_RTMP_URL, YOUTUBE_RTMP_STREAM_KEY));
 
-            meeting.startLivestream(outputs);
+//            meeting.startLivestream(outputs);
         } else {
             meeting.stopLivestream();
         }
@@ -668,9 +646,13 @@ public class MainActivity extends AppCompatActivity {
         if (meeting != null) meeting.leave();
         svrShare.clearImage();
         svrShare.release();
-        svrLocal.clearImage();
-        svrLocal.setVisibility(View.GONE);
-        svrLocal.release();
+        svrShare.clearImage();
+        svrShare.setVisibility(View.GONE);
+        svrShare.release();
+        banubaProcessor.removePlayer();
+//        if (dialogName != null) {
+//            dialogName.dismiss();
+//        }
         super.onDestroy();
     }
 
@@ -700,25 +682,9 @@ public class MainActivity extends AppCompatActivity {
                             audioDevice = AppRTCAudioManager.AudioDevice.EARPIECE;
                             break;
                     }
-//                    meeting.changeMic(audioDevice);
-                    meeting.changeMic(audioDevice, VideoSDK.createAudioTrack("high_quality", null, null));
                 })
                 .show();
-    }
 
-    private void initVideoFrameProcessor(VideoSource videoSource, CustomStreamTrack track) {
-        mVideoFrameProcessor = new BanubaProcessor();
-        mVideoFrameProcessor.setSink(videoFrame -> {
-            svrLocal.onFrame(videoFrame);
-
-        });
-        mSurfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", EglBase.create().getEglBaseContext(), false);
-
-        mVideoFrameProcessor.setSink(frame -> {
-            if (videoSource != null) videoSource.getCapturerObserver().onFrameCaptured(frame);
-        });
-
-        mVideoFrameProcessor.onCaptureCreate(MainActivity.this, mSurfaceTextureHelper.getHandler(), track.getWidth(), track.getHeight());
     }
 
     private void showDialog() {
@@ -727,20 +693,34 @@ public class MainActivity extends AppCompatActivity {
         dialog.setContentView(R.layout.dialog_recycle);
 
 
-        String pathToEffects = this.getFilesDir().toString() + "/banuba/bnb-resources/effects/";
-        File[] effectsDirs = new File(pathToEffects).listFiles(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                return dir.isDirectory();
-            }
-        });
-
         List<String> pathsToEffectsList = new ArrayList<String>();
         pathsToEffectsList.add("off()");
-        for (File effectDir : effectsDirs) {
-            pathsToEffectsList.add(effectDir.toString());
-        }
+        AssetManager manager = getApplicationContext().getAssets();
 
+        String path = "bnb-resources/effects/";
+
+        try {
+           String[]  items= manager.list(path);
+
+            if (items != null) {
+                for (String item : items) {
+                    // Construct the full path to check if it's a directory
+                    String itemPath = path.isEmpty() ? item : path + item;
+                    Log.d("TAG", "showDialog: 1 " + itemPath);
+
+                    // Try listing the contents of the item; if not null, it's a directory
+                    String[] subItems = manager.list(itemPath);
+                    if (subItems != null && subItems.length > 0) {
+                        pathsToEffectsList.add(item);
+                    }
+                }
+            } else {
+                Log.e("TAG", "No items found in assets/" + path);
+            }
+
+        } catch (IOException e) {
+//            throw new RuntimeException(e);
+        }
 
         RecyclerView recyclerView = dialog.findViewById(R.id.recyclerView);
         mEffectsAdapter = new EffectsAdapter(pathsToEffectsList);
@@ -757,18 +737,19 @@ public class MainActivity extends AppCompatActivity {
 
         /* effects load callback */
         mEffectsAdapter.setOnItemClickListener(effectName -> {
+            Log.d("TAG", "showDialog: " + effectName);
             if (effectName == "off()") {
-                if (mVideoFrameProcessor != null) {
-                    mVideoFrameProcessor.unloadEffect();
-                    mVideoFrameProcessor.setProcessorEnabled(false);
-                }
+                banubaProcessor.removeEffect();
             } else {
-                if (mVideoFrameProcessor != null) {
-                    mVideoFrameProcessor.setProcessorEnabled(true);
-                    mVideoFrameProcessor.loadEffect(effectName);
-                }
+                banubaProcessor.setEffect(effectName);
             }
+            dialog.dismiss();
         });
 
+
+
+      //  banubaProcessor.setEffect();
+
     }
+
 }

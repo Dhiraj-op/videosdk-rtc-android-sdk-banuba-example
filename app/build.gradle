@@ -7,7 +7,7 @@ localProperties.load(new FileInputStream(rootProject.file("local.properties")))
 
 
 android {
-    compileSdk 32
+    compileSdk 33
 
     defaultConfig {
         applicationId "live.videosdk.rtc.android.java"
@@ -15,7 +15,7 @@ android {
         targetSdk 32
         versionCode 1
         versionName "1.0"
-
+        multiDexEnabled true
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -42,10 +42,16 @@ android {
 
 dependencies {
 
-    implementation 'live.videosdk:rtc-android-sdk:0.1.7'
+////    implementation 'live.videosdk:rtc-android-sdk:0.1.32'
+//    implementation 'com.github.zujonow:rtc-android-sdk:e5458a938b'
+////    implementation 'live.videosdk:videosdk-media-effects:0.0.1'
+//    implementation 'com.github.zujonow:android-media-effects:3eddaf0bf0'
 
-    // Banuba SDK dependencies
-    implementation fileTree(dir: 'libs', include: ['*.aar'])
+    implementation 'com.github.zujonow:rtc-android-sdk:e5458a938b'
+    implementation 'com.github.zujonow:android-media-effects:18d0c4765a'
+
+    implementation "com.banuba.sdk:banuba_sdk:1+"
+
     implementation 'androidx.recyclerview:recyclerview:1.2.1'
 
     implementation 'com.nabinbhandari.android:permissions:3.8'

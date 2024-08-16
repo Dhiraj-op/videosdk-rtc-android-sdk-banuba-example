@@ -57,6 +57,7 @@
         </LinearLayout>
 
         <FrameLayout
+            android:visibility="gone"
             android:layout_width="130dp"
             android:layout_height="130dp"
             android:layout_gravity="end"
@@ -90,6 +91,11 @@
         android:layout_weight="1"
         android:visibility="gone"
         tools:visibility="visible" />
+
+    <android.view.TextureView
+        android:id="@+id/textrueView"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvParticipants"
