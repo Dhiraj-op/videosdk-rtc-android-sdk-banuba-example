@@ -36,7 +36,6 @@ import com.nabinbhandari.android.permissions.Permissions;
 
 import org.json.JSONObject;
 import org.webrtc.RendererCommon;
-import org.webrtc.SurfaceTextureHelper;
 import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoTrack;
 
@@ -65,23 +64,17 @@ import live.videosdk.rtc.android.model.LivestreamOutput;
 public class MainActivity extends AppCompatActivity {
     private Meeting meeting;
     private SurfaceViewRenderer svrLocal, svrShare;
-
     private boolean micEnabled = true;
     private boolean webcamEnabled = true;
     private boolean recording = false;
     private boolean livestreaming = false;
     private boolean localScreenShare = false;
-
     private static final String YOUTUBE_RTMP_URL = null;
     private static final String YOUTUBE_RTMP_STREAM_KEY = null;
-
     private static final int CAPTURE_PERMISSION_REQUEST_CODE = 1;
-
     private FloatingActionButton btnScreenShare,btnMic,btnWebcam;
     private EffectsAdapter mEffectsAdapter;
-
     BanubaProcessor banubaProcessor;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -117,13 +110,6 @@ public class MainActivity extends AppCompatActivity {
 
         CustomStreamTrack audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this);
         customTracks.put("mic", audioCustomTrack);
-
-  //      initVideoFrameProcessor(videoCustomTrack.getVideoSource(), videoCustomTrack);
-
-//        meeting = VideoSDK.initMeeting(
-//                MainActivity.this, meetingId, participantName,
-//                micEnabled, webcamEnabled, null, customTracks
-//        );
 
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
@@ -650,9 +636,6 @@ public class MainActivity extends AppCompatActivity {
         svrShare.setVisibility(View.GONE);
         svrShare.release();
         banubaProcessor.removePlayer();
-//        if (dialogName != null) {
-//            dialogName.dismiss();
-//        }
         super.onDestroy();
     }
 
@@ -718,8 +701,8 @@ public class MainActivity extends AppCompatActivity {
                 Log.e("TAG", "No items found in assets/" + path);
             }
 
-        } catch (IOException e) {
-//            throw new RuntimeException(e);
+        } catch (IOException ignored) {
+
         }
 
         RecyclerView recyclerView = dialog.findViewById(R.id.recyclerView);
@@ -745,11 +728,6 @@ public class MainActivity extends AppCompatActivity {
             }
             dialog.dismiss();
         });
-
-
-
-      //  banubaProcessor.setEffect();
-
     }
 
 }
